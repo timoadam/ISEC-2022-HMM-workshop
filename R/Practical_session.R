@@ -1,8 +1,12 @@
 ## 1. Analysing tracking data with moveHMM
 
 ## Install and load moveHMM
-install.packages(moveHMM)
+# install.packages("moveHMM")
+# install.packages("ggplot2")
+# install.packages("sp")
 library(moveHMM)
+library(ggplot2)
+library(sp)
 
 ## 1.1 Data pre-processing
 
@@ -15,7 +19,7 @@ unique(petrel_data$ID)
 ## Compute step lengths and turning angles
 hmm_data <- prepData(trackData = petrel_data, coordNames = c("lon", "lat"), type = "LL")
 head(hmm_data)
-plot(hmm_data)
+plot(hmm_data, ask = FALSE, animals = 1:2)
 
 ## 1.2 Model specification/1.3 Model fitting
 
