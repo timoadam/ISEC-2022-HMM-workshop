@@ -19,24 +19,21 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r set_directory, include = FALSE}
-setwd("/Users/timoadam/Desktop/ISEC 2022 HMM workshop")
-library(moveHMM)
-```
-
 # Analysing tracking data with moveHMM
 
 In this exercise, we analyse petrel tracking data using hidden Markov models (HMMs). The R package moveHMM allows us to model step lengths and turning angles using HMMs. We start by installing and loading moveHMM:
 
-```{r load_moveHMM, eval = FALSE}
+```{r load_moveHMM}
 ## Install and load moveHMM
-install.packages("moveHMM")
+# install.packages("moveHMM")
 library(moveHMM)
+library(ggplot2)
+library(sp)
 ```
 
 ## Data pre-processing
 
-The raw data are available on Movebank, click [here](https://www.datarepository.movebank.org/handle/10255/move.568) for details. These raw data have been pre-processed by sub-setting relevant columns, splitting the tracks at gaps, and creating the covariate distance to the colony (we can skip the following code chunk and load the pre-processed data instead, see the last code chunk of this section):
+The raw data are available on the Movebank data repository, click [here](https://www.datarepository.movebank.org/handle/10255/move.568) for details (@descamps2016data, @descamps2016paper). These raw data have been pre-processed by sub-setting relevant columns, splitting the tracks at gaps, and creating the covariate distance to the colony (we can skip the following code chunk and load the pre-processed data instead, see the last code chunk of this section):
 
 ```{r data, eval = FALSE}
 ## Load data from Movebank
@@ -54,8 +51,8 @@ data_all$time <- as.POSIXct(data_all$time, tz = "MST")
 ## Keep first 10 tracks for this example
 petrel_data <- subset(data_all, ID %in% unique(ID)[1:5])
 
-## Split tracks at gaps using the function split_at_gaps
-source(./R/split_at_gap.R)
+## Split tracks at gaps using the function split_at_gap
+source("R/split_at_gap.R")
 petrel_data <- split_at_gap(data = petrel_data, max_gap = 60)
 
 ## Plot tracks
@@ -85,7 +82,7 @@ Instead of running the above code chunk, we can load the pre-processed data:
 
 ```{r load_data}
 ## Load the data
-petrel_data <- read.csv("./data/petrel_data.csv")
+petrel_data <- read.csv("data/petrel_data.csv")
 ```
 
 The data are in the proper format and can be processed using `prepData` to compute step lengths and turning angles.
@@ -109,9 +106,9 @@ hmm_data <- prepData(trackData = petrel_data, coordNames = c("lon", "lat"),
 Step lengths and turning angles are computed; the returned object is a data frame. The following commands can be used to get an overview of the data and to visualise the tracks:
 
 ```{r show_data, eval = FALSE}
-## Get an overview of the data and to visualise the tracks
+## Get an overview of the data and to visualise the first 2 tracks
 head(hmm_data)
-plot(hmm_data)
+plot(hmm_data, ask = FALSE, animals = 1:2)
 ```
 
 ## Model specification
@@ -191,7 +188,7 @@ viterbi(mod)
 ## Local state decoding
 stateProbs(mod)
 ## Show both
-plotStates(mod)
+plotStates(mod, ask = FALSE, animals = 1)
 ```
 
 ## Adding covariates on the state transition probabilities
@@ -289,11 +286,11 @@ pal <- c("#E69F00", "#56B4E9", "#009E73")
 
 ## Data
 
-We consider accelerometer data collected on a whitetip shark over 4 days, provided by Yannis Papastamatiou (Florida International University, USA) and Yuuki Watanabe (National Institute of Polar Research, Japan). The raw data were at a very high sub-second resolution, but we thinned them to a 30-sec resolution for this analysis, for computational speed. The observed variable is the overall dynamic body acceleration (ODBA), which is some measure of the magnitude of the three-dimensional acceleration of the animal, and has sometimes been proposed as a proxy for energy expenditure. We also have another variable, the time of day, which we could consider including as a covariate.
+We consider accelerometer data collected on a whitetip shark over 4 days, provided by Yannis Papastamatiou (Florida International University, USA) and Yuuki Watanabe (National Institute of Polar Research, Japan). The raw data were at a very high sub-second resolution, but we thinned them to a 1-min resolution for this analysis, for computational speed. The observed variable is the overall dynamic body acceleration (ODBA), which is some measure of the magnitude of the three-dimensional acceleration of the animal, and has sometimes been proposed as a proxy for energy expenditure. We also have another variable, the time of day, which we could consider including as a covariate.
 
 ```{r load-data}
 # Load whitetip shark accelerometer data
-data <- read.csv("./data/whitetip_data.csv")
+data <- read.csv("data/whitetip_data.csv")
 data$Time <- as.POSIXct(data$Time)
 head(data)
 nrow(data)
@@ -355,7 +352,8 @@ We can use the function `viterbi` to obtain the most likely state sequence, and 
 ```{r 2state-viterbi, fig.width = 5, fig.height = 3, out.width="70%", fig.align="center"}
 data_hmm$viterbi_2s <- factor(viterbi(hmm_2s))
 
-ggplot(tail(data_hmm, 1000), aes(Time, logODBA, col = viterbi_2s, group = NA)) +
+ggplot(tail(data_hmm, 1000), 
+       aes(Time, logODBA, col = viterbi_2s, group = NA)) +
   geom_line() +
   scale_color_manual(values = pal, name = "State")
 ```
@@ -392,7 +390,8 @@ plot(hmm_3s, ask = FALSE)
 data_hmm$viterbi_3s <- factor(viterbi(hmm_3s))
 
 # Plot log-ODBA coloured by states
-ggplot(tail(data_hmm, 1000), aes(Time, logODBA, col = viterbi_3s, group = NA)) +
+ggplot(tail(data_hmm, 1000), 
+       aes(Time, logODBA, col = viterbi_3s, group = NA)) +
   geom_line() +
   scale_color_manual(values = pal, name = "State")
 ```
@@ -411,7 +410,8 @@ Time of day is defined between 0 and 24, and it should have a cyclical effect, i
 
 ```{r 3state-tod-fit, fig.width = 7, fig.height = 5, out.width="90%", fig.align="center"}
 # Fit model with time of day covariate
-hmm_3s_tod <- fitHMM(data = data_hmm, nbStates = 3, dist = dist, Par0 = Par0_3s,
+hmm_3s_tod <- fitHMM(data = data_hmm, nbStates = 3, 
+                     dist = dist, Par0 = Par0_3s,
                      formula = ~ cosinor(TimeOfDay, period = 24))
 
 # Plot stationary state probabilities as function of time of day
