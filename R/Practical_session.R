@@ -1,93 +1,39 @@
-## ----setup, include = FALSE-----------------------------------------------------------------------------------
-knitr::opts_chunk$set(
-  message = FALSE, error = FALSE, warning = FALSE,
-  comment = NA
-)
+## 1. Analysing tracking data with moveHMM
 
-
-## ----set_directory, include = FALSE---------------------------------------------------------------------------
-setwd("/Users/timoadam/Desktop/ISEC 2022 HMM workshop")
+## Install and load moveHMM
+# install.packages(moveHMM)
 library(moveHMM)
 
+## Set working directory
+setwd("/Users/timoadam/Desktop/ISEC 2022 HMM workshop")
 
-## ----load_moveHMM, eval = FALSE-------------------------------------------------------------------------------
-## ## Install and load moveHMM
-## install.packages("moveHMM")
-## library(moveHMM)
+## 1.1 Data pre-processing
 
-
-## ----data, eval = FALSE---------------------------------------------------------------------------------------
-## ## Load data from Movebank
-## URL <- paste0("https://www.datarepository.movebank.org/bitstream/handle/",
-##               "10255/move.568/At-sea%20distribution%20Antarctic%20Petrel",
-##               "%2c%20Antarctica%202012%20%28data%20from%20Descamps%20et%",
-##               "20al.%202016%29-gps.csv")
-## raw <- read.csv(url(URL))
-## 
-## ## Keep relevant columns: ID, time, lon, and lat
-## data_all <- raw[, c(13, 3, 4, 5)]
-## colnames(data_all) <- c("ID", "time", "lon", "lat")
-## data_all$time <- as.POSIXct(data_all$time, tz = "MST")
-## 
-## ## Keep first 10 tracks for this example
-## petrel_data <- subset(data_all, ID %in% unique(ID)[1:5])
-## 
-## ## Split tracks at gaps using the function split_at_gaps
-## source(./R/split_at_gap.R)
-## petrel_data <- split_at_gap(data = petrel_data, max_gap = 60)
-## 
-## ## Plot tracks
-## ggplot(petrel_data, aes(lon, lat, col = ID)) + geom_path() +
-##   geom_point(size = 0.3) + coord_map()
-## 
-## ## Create distance to centre covariate
-## # Define centre for each track as first observation
-## i0 <- c(1, which(petrel_data$ID[-1] != petrel_data$ID[-nrow(petrel_data)])
-##         + 1)
-## centres <- petrel_data[i0, c("ID", "lon", "lat")]
-## petrel_data$centre_lon <- rep(centres$lon, rle(petrel_data$ID)$lengths)
-## petrel_data$centre_lat <- rep(centres$lat, rle(petrel_data$ID)$lengths)
-## 
-## # Add distance to centre covariate (based on sp for great circle distance)
-## petrel_data$d2c <- sapply(1:nrow(petrel_data), function(i) {
-##   spDistsN1(pts = matrix(as.numeric(petrel_data[i, c("lon", "lat")]),
-##             ncol = 2), pt = c(petrel_data$centre_lon[i],
-##             petrel_data$centre_lat[i]), longlat = TRUE)
-## })
-## 
-## # Divide by 1000 for numerical stability (i.e., unit = 1000 km)
-## petrel_data$d2c <- petrel_data$d2c / 1000
-
-
-## ----load_data------------------------------------------------------------------------------------------------
-## Load the data
+## Load data
 petrel_data <- read.csv("./data/petrel_data.csv")
+head(petrel_data)
+dim(petrel_data)
+unique(petrel_data$ID)
 
-
-## ----prep_data, cache = TRUE----------------------------------------------------------------------------------
 ## Compute step lengths and turning angles
-hmm_data <- prepData(trackData = petrel_data, coordNames = c("lon", "lat"), 
-                     type = "LL")
+hmm_data <- prepData(trackData = petrel_data, coordNames = c("lon", "lat"), type = "LL")
+head(hmm_data)
+plot(hmm_data)
 
+## 1.2 Model specification/1.3 Model fitting
 
-## ----show_data, eval = FALSE----------------------------------------------------------------------------------
-## ## Get an overview of the data and to visualise the tracks
-## head(hmm_data)
-## plot(hmm_data)
+## Plot histograms of step length and turning angle
+par(mfrow = c(1, 2))
+hist(hmm_data$step)
+hist(hmm_data$angle)
+summary(hmm_data$step) # there are step lengths that are equal to zero
 
-
-## ----plot_histograms, eval = FALSE----------------------------------------------------------------------------
-## ## Plot histograms of step length and turning angle
-## par(mfrow = c(1, 2))
-## hist(hmm_data$step)
-## hist(hmm_data$angle)
-
-
-## ----initial_values-------------------------------------------------------------------------------------------
 ## Initial values for the parameters of the state-dependent distributions
+
+## Examples of poor choices:
 # For step length
-step_mean_par0 <- c(2, 8, 16) # means
-step_SD_par0 <- c(4, 5, 6) # SDs
+step_mean_par0 <- c(2, 8, 80) # means
+step_SD_par0 <- c(1, 4, 1) # SDs
 step_zeroprob_par0 <- c(0.01, 0.01, 0.01) # zero probabilities
 step_par0 <- c(step_mean_par0, step_SD_par0, step_zeroprob_par0)
 # For turning angle
@@ -95,77 +41,98 @@ angle_mean_par0 <- c(0, 0, 0) # means
 angle_concentration_par0 <- c(0.5, 0.7, 0.9) # concentrations
 angle_par0 <- c(angle_mean_par0, angle_concentration_par0)
 
-
-## ----model_fitting, message = FALSE, results='hide', cache = TRUE---------------------------------------------
-## Fit 3-state HMM
-mod <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
-                 angleDist = "wrpcauchy", stepPar0 = step_par0, 
-                 anglePar0 = angle_par0, verbose = 1)
-
-
-## ----print_model, eval = TRUE---------------------------------------------------------------------------------
-## Print estimated model parameters
+## Fit HMM
+mod <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", angleDist = "wrpcauchy", 
+              stepPar0 = step_par0, anglePar0 = angle_par0, verbose = 2)
 mod
+mod$mod$minimum # log-likelihood: 13170.3
 
+## Examples of poor choices:
+# For step length
+step_mean_par0 <- c(2, 8, 16) # means
+step_SD_par0 <- c(1, 1, 1) # SDs
+step_zeroprob_par0 <- c(0.01, 0.01, 0.01) # zero probabilities
+step_par0 <- c(step_mean_par0, step_SD_par0, step_zeroprob_par0)
+# For turning angle
+angle_mean_par0 <- c(0, 0, 0) # means
+angle_concentration_par0 <- c(0.5, 0.8, 0.8) # concentrations
+angle_par0 <- c(angle_mean_par0, angle_concentration_par0)
 
-## ----plot_model, message = FALSE, results='hide', fig.width = 10, fig.height = 5, out.width="100%", fig.align="center"----
+## Fit HMM
+mod <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", angleDist = "wrpcauchy", 
+              stepPar0 = step_par0, anglePar0 = angle_par0, verbose = 2)
+mod
+mod$mod$minimum # log-likelihood: 13170.3
+
+## Good choice:
+# For step length
+step_mean_par0 <- c(2, 8, 16) # means
+step_SD_par0 <- c(1, 4, 8) # SDs
+step_zeroprob_par0 <- c(0.01, 0.01, 0.01) # zero probabilities
+step_par0 <- c(step_mean_par0, step_SD_par0, step_zeroprob_par0)
+# For turning angle
+angle_mean_par0 <- c(0, 0, 0) # means
+angle_concentration_par0 <- c(0.5, 0.7, 0.9) # concentrations
+angle_par0 <- c(angle_mean_par0, angle_concentration_par0)
+
+## Fit HMM
+mod <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", angleDist = "wrpcauchy", 
+              stepPar0 = step_par0, anglePar0 = angle_par0, verbose = 2)
+mod
+mod$mod$minimum # log-likelihood: 10635.4
+
+## 1.4 Results
+
 ## Plot the fitted state-dependent distributions
 par(mfrow = c(1, 2))
 plot(mod, plotTracks = FALSE, ask = FALSE)
 
+## Plot the decoded tracks
+plot(mod)
 
-## ----state_decoding, eval = FALSE-----------------------------------------------------------------------------
-## ## Global state decoding
-## viterbi(mod)
-## ## Local state decoding
-## stateProbs(mod)
-## ## Show both
-## plotStates(mod)
+## State decoding
+# Global decoding
+viterbi(mod)
+# Local decoding
+stateProbs(mod)
+# Show both
+plotStates(mod)
 
+## 1.5 Adding covariates on the state transition probabilities
 
-## ----add_covariates, message = FALSE, results = 'hide', cache = TRUE------------------------------------------
-# Fit 3-state model with linear effect of d2c
+## Fit HMM with linear effect of d2c
 mod_d2c <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                   angleDist = "wrpcauchy", stepPar0 = step_par0, 
                   anglePar0 = angle_par0, formula = ~ d2c, verbose = 1)
 
-# Fit 3-state model with squared effect of d2c
+## Fit HMM with squared effect of d2c
 mod_d2c2 <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                    angleDist = "wrpcauchy", stepPar0 = step_par0, 
                    anglePar0 = angle_par0, formula = ~ d2c + I(d2c ^ 2), 
                    verbose = 1)
 
-# Fit 3-state model cubic effect of d2c
+## Fit HMM cubic effect of d2c
 mod_d2c3 <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                    angleDist = "wrpcauchy", stepPar0 = step_par0, 
                    anglePar0 = angle_par0, formula = ~ d2c + I(d2c ^ 2) 
                    + I(d2c ^ 3), verbose = 1)
 
-
-## ----stationary_d2c, message = FALSE, results = 'hide', cache = TRUE, fig.width = 6, fig.height = 6, out.width = "50%", fig.align = "center"----
 ## Plot stationary state probabilities as function of d2c
 plotStationary(mod_d2c, plotCI = TRUE)
-
-
-## ----stationary_d2c2, message = FALSE, results = 'hide', cache = TRUE, fig.width = 6, fig.height = 6, out.width = "50%", fig.align = "center"----
-## Plot stationary state probabilities as function of d2c
 plotStationary(mod_d2c2, plotCI = TRUE)
-
-
-## ----stationary_d2c3, message = FALSE, results = 'hide', cache = TRUE, fig.width = 6, fig.height = 6, out.width = "50%", fig.align = "center"----
-## Plot stationary state probabilities as function of d2c
 plotStationary(mod_d2c3, plotCI = TRUE)
 
+## 1.6 Model selection
 
-## ----model_selection------------------------------------------------------------------------------------------
 ## Compute AIC
 AIC(mod, mod_d2c, mod_d2c2, mod_d2c3)
 
+## 1.7 Model checking
 
-## ----model_checking, message = FALSE, results = 'hide', cache = TRUE, fig.width = 10, fig.height = 7.5, out.width = "100%", fig.align = "center"----
 ## Plot QQ and ACF plots
 plotPR(mod_d2c2)
 
+## 2. Analysing accelerometer data with momentuHMM
 
 ## ----load-packages--------------------------------------------------------------------------------------------
 # # Detach moveHMM if loaded
