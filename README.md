@@ -1,6 +1,6 @@
 # ISEC-2022-HMM-workshop
 This repository contains material (slides, code, and data) used in the practical session of the workshop "Hidden Markov models for animal movement and other ecological data":
 
-- The file Practical_session.pdf is an RMarkdown file that contains some examples.
+- The files Practical_session.Rmd/Practical_session.pdf contains some examples.
 - The folder R contains some R scripts.
 - The folder data contains the petrel and the oceanic whitetip shark data.
