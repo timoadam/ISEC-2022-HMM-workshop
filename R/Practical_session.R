@@ -1,11 +1,8 @@
 ## 1. Analysing tracking data with moveHMM
 
 ## Install and load moveHMM
-# install.packages(moveHMM)
+install.packages(moveHMM)
 library(moveHMM)
-
-## Set working directory
-setwd("/Users/timoadam/Desktop/ISEC 2022 HMM workshop")
 
 ## 1.1 Data pre-processing
 
