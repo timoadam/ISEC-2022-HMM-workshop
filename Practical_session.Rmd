@@ -24,8 +24,10 @@ knitr::opts_chunk$set(
 In this exercise, we analyse petrel tracking data using hidden Markov models (HMMs). The R package moveHMM allows us to model step lengths and turning angles using HMMs. We start by installing and loading moveHMM:
 
 ```{r load_moveHMM}
-## Install and load moveHMM
+## Install and load required packages
 # install.packages("moveHMM")
+# install.packages("ggplot2")
+# install.packages("sp")
 library(moveHMM)
 library(ggplot2)
 library(sp)
@@ -153,10 +155,10 @@ To fit an HMM to data, we use `fitHMM`. The most important arguments of that fun
 The call to the function for our data is:
 
 ```{r model_fitting, message = FALSE, results='hide', cache = TRUE}
-## Fit 3-state HMM
+## Fit HMM
 mod <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
-                 angleDist = "wrpcauchy", stepPar0 = step_par0, 
-                 anglePar0 = angle_par0, verbose = 1)
+              angleDist = "wrpcauchy", stepPar0 = step_par0, 
+              anglePar0 = angle_par0, verbose = 1)
 ```
 
 If we want to watch `fitHMM` iteratively fitting our HMM, we can choose `verbose = 2`. The fitted model is stored as `mod`, which is used as an input to the following functions.
@@ -196,18 +198,18 @@ plotStates(mod, ask = FALSE, animals = 1)
 Covariates can be included in the hidden state model to capture the effect of environmental or individual-specific variables on the animal’s behaviour. In moveHMM, covariates can be included by specifying a `formula`. Here, we are interested in modelling a linear, quadratic, and cubic effect of the distance to the colony (`d2c`).
 
 ```{r add_covariates, message = FALSE, results = 'hide', cache = TRUE}
-# Fit 3-state model with linear effect of d2c
+# Fit HMM with linear effect of d2c
 mod_d2c <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                   angleDist = "wrpcauchy", stepPar0 = step_par0, 
                   anglePar0 = angle_par0, formula = ~ d2c, verbose = 1)
 
-# Fit 3-state model with squared effect of d2c
+# Fit HMM with squared effect of d2c
 mod_d2c2 <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                    angleDist = "wrpcauchy", stepPar0 = step_par0, 
                    anglePar0 = angle_par0, formula = ~ d2c + I(d2c ^ 2), 
                    verbose = 1)
 
-# Fit 3-state model cubic effect of d2c
+# Fit HMM with cubic effect of d2c
 mod_d2c3 <- fitHMM(data = hmm_data, nbStates = 3, stepDist = "gamma", 
                    angleDist = "wrpcauchy", stepPar0 = step_par0, 
                    anglePar0 = angle_par0, formula = ~ d2c + I(d2c ^ 2) 
